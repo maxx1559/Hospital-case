@@ -1,13 +1,15 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Hospital.Application.Rules;
+using Microsoft.EntityFrameworkCore;
 
 namespace Hospital.Application;
 
-public class AppointmentService(AppointmentRepository appointmentRepository)
+public class AppointmentService(AppointmentRepository appointmentRepository, IRuleDictionary ruleDictionary)
 {
     public async Task<bool> ScheduleAppointment(
         string cpr, string patientName, DateTime appointmentDate,
         string department, string doctorName)
     {
+        var datecheck = appointmentDate < DateTime.Now;
         // Basic validation
         if (string.IsNullOrEmpty(cpr) || string.IsNullOrEmpty(department) ||
             string.IsNullOrEmpty(doctorName) || appointmentDate < DateTime.Now)
@@ -89,6 +91,46 @@ public class AppointmentService(AppointmentRepository appointmentRepository)
         Console.WriteLine($"[LOG] Appointment successfully scheduled for {patientName} (CPR: {cpr})");
         return true;
     }
+
+    public async Task<bool> ScheduleAppointmentWithRules(
+        string cpr, string patientName, DateTime appointmentDate,
+        string department, string doctorName)
+    {
+        // Basic validation
+        if (string.IsNullOrEmpty(cpr) || string.IsNullOrEmpty(department) ||
+            string.IsNullOrEmpty(doctorName) || appointmentDate < DateTime.Now)
+        {
+            Console.WriteLine("[ERROR] Invalid appointment request.");
+            return false;
+        }
+
+        var rules = ruleDictionary.GetRulesForDepartment(department);
+        Appointment appointment = new Appointment
+        {
+            Cpr = cpr,
+            PatientName = patientName,
+            AppointmentDate = appointmentDate,
+            Department = department,
+            DoctorName = doctorName
+        };
+
+        foreach (var rule in rules)
+        {
+            if (!await rule.RulesSatisfied(appointment, CancellationToken.None))
+            {
+                Console.WriteLine(rule.ErrorMessage);
+                return false;
+            }
+        }
+
+        Console.WriteLine($"[LOG] Scheduling appointment for {patientName} (CPR: {cpr}) in {department} with {doctorName} on {appointmentDate}");
+
+        await appointmentRepository.AddAsync(appointment);
+
+        Console.WriteLine($"[LOG] Appointment successfully scheduled for {patientName} (CPR: {cpr})");
+        return true;
+    }
+
 
     private bool IsAssignedToGP(string cpr, string doctorName)
     {
