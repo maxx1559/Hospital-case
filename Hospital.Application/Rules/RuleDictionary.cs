@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Hospital.Application.Rules.RuleObjects;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,7 +18,7 @@ namespace Hospital.Application.Rules
 
         public IEnumerable<IRule> GetRulesForDepartment(string department)
         {
-            IEnumerable<IRule> rules = rulesForDepartment.TryGetValue(department, out var foundRules) ? foundRules : Enumerable.Empty<IRule>();
+            IEnumerable<IRule> rules = rulesForDepartment.TryGetValue(department, out var foundRules) ? foundRules : new List<IRule>() { new UnknownDepartmentRule() };
 
 
             return rules;
